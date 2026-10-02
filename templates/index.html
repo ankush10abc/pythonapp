@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EUZME – Decision-Intelligence Search Engine</title>
+<style>
+  :root{--green:#1db954;--dark:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--dark);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;}
+  header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:12px;}
+  header h1{font-size:1.5rem;color:var(--green);letter-spacing:2px;}
+  header span{color:var(--muted);font-size:.85rem;}
+  .container{max-width:900px;margin:0 auto;padding:32px 16px;}
+
+  /* Screen 1 */
+  #screen-search{display:block;}
+  #screen-result{display:none;}
+  .search-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;}
+  .search-card h2{font-size:1.2rem;margin-bottom:20px;color:var(--text);}
+  textarea{width:100%;background:#0d1117;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:14px;font-size:.95rem;resize:vertical;min-height:90px;outline:none;}
+  textarea:focus{border-color:var(--green);}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;}
+  .chip{background:#21262d;border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:.82rem;cursor:pointer;transition:.2s;}
+  .chip.active{background:var(--green);color:#000;border-color:var(--green);}
+  .btn-primary{background:var(--green);color:#000;border:none;border-radius:8px;padding:14px 28px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;margin-top:16px;transition:.2s;}
+  .btn-primary:hover{opacity:.88;}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .explainers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:24px;}
+  .explainer{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;}
+  .explainer .icon{font-size:1.4rem;margin-bottom:6px;}
+  .explainer h4{font-size:.85rem;color:var(--green);margin-bottom:4px;}
+  .explainer p{font-size:.75rem;color:var(--muted);}
+
+  /* Processing overlay */
+  #processing{display:none;text-align:center;padding:48px 0;}
+  .spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .steps-log{text-align:left;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:20px;max-height:200px;overflow-y:auto;}
+  .log-line{font-size:.8rem;color:var(--muted);padding:3px 0;border-bottom:1px solid #21262d;}
+  .log-line.done{color:var(--green);}
+
+  /* Screen 2 */
+  .result-header{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;}
+  .match-score{display:flex;align-items:center;gap:16px;margin-bottom:16px;}
+  .score-badge{background:var(--green);color:#000;font-size:1.6rem;font-weight:900;border-radius:50%;width:72px;height:72px;display:flex;align-items:center;justify-content:center;}
+  .result-header h2{font-size:1.3rem;}
+  .result-header .total{font-size:1.8rem;font-weight:700;color:var(--green);}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+  .check-item{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted);}
+  .check-item::before{content:"✓";color:var(--green);font-weight:700;}
+  .saving-badge{background:#1a2e1a;border:1px solid var(--green);border-radius:8px;padding:8px 14px;font-size:.85rem;color:var(--green);margin-top:12px;display:inline-block;}
+
+  /* Basket */
+  .section-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+  .section-card h3{font-size:1rem;margin-bottom:14px;color:var(--text);}
+  .basket-group{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+  .basket-group:last-child{border-bottom:none;}
+  .basket-group .name{font-size:.9rem;}
+  .basket-group .items{font-size:.78rem;color:var(--muted);}
+  .qty-ctrl{display:flex;align-items:center;gap:8px;}
+  .qty-btn{background:#21262d;border:1px solid var(--border);color:var(--text);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:1rem;}
+  .qty-val{min-width:20px;text-align:center;font-size:.9rem;}
+
+  /* Ranking table */
+  .rank-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+  .rank-table th{color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);}
+  .rank-table td{padding:8px 10px;border-bottom:1px solid #21262d;}
+  .rank-badge{background:#21262d;border-radius:4px;padding:2px 8px;font-size:.78rem;}
+  .rank-badge.top{background:var(--green);color:#000;}
+  .score-bar-wrap{background:#21262d;border-radius:4px;height:8px;width:120px;overflow:hidden;}
+  .score-bar{background:var(--green);height:100%;border-radius:4px;transition:width .6s;}
+
+  /* Mismatch alert */
+  .mismatch-alert{background:#1a1200;border:1px solid var(--yellow);border-radius:10px;padding:18px;margin-bottom:16px;}
+  .mismatch-alert h4{color:var(--yellow);margin-bottom:8px;font-size:.95rem;}
+  .mismatch-alert p{font-size:.83rem;color:var(--muted);margin-bottom:10px;}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 16px;font-size:.82rem;cursor:pointer;margin-right:8px;transition:.2s;}
+  .btn-outline:hover{border-color:var(--green);color:var(--green);}
+
+  /* Steps modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;max-width:640px;width:95%;max-height:85vh;overflow-y:auto;}
+  .modal h3{margin-bottom:18px;color:var(--green);}
+  .step-row{display:flex;gap:14px;margin-bottom:14px;}
+  .step-num{background:var(--green);color:#000;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0;}
+  .step-body h5{font-size:.88rem;margin-bottom:3px;}
+  .step-body p{font-size:.8rem;color:var(--muted);}
+  .evidence-pill{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.75rem;color:var(--blue);display:inline-block;margin-top:4px;}
+  .close-btn{background:transparent;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;float:right;}
+
+  /* Decision Graph modal */
+  .graph-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
+  .graph-col h5{font-size:.78rem;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;}
+  .graph-node{background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:.8rem;margin-bottom:6px;}
+  .graph-node.uncertain{border-color:var(--yellow);}
+  .graph-node.verified{border-color:var(--green);}
+  .state-tag{font-size:.7rem;padding:2px 6px;border-radius:4px;margin-left:6px;}
+  .state-tag.verified{background:#1a2e1a;color:var(--green);}
+  .state-tag.uncertain{background:#2e2200;color:var(--yellow);}
+
+  /* Approval */
+  .approval-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+  .btn-approve{background:var(--green);color:#000;border:none;border-radius:8px;padding:14px 28px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;transition:.2s;}
+  .btn-approve:hover{opacity:.88;}
+  .btn-approve.done{background:#21262d;color:var(--green);cursor:default;}
+
+  .back-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-bottom:16px;display:flex;align-items:center;gap:6px;}
+  .back-btn:hover{color:var(--text);}
+
+  @media(max-width:600px){
+    .explainers{grid-template-columns:1fr;}
+    .checks{grid-template-columns:1fr;}
+    .graph-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>EUZME</h1>
+  <span>Decision-Intelligence Search Engine</span>
+</header>
+
+<div class="container">
+
+  <!-- SCREEN 1: Search -->
+  <div id="screen-search">
+    <div class="search-card">
+      <h2>What are you looking for?</h2>
+      <textarea id="query-input" placeholder="e.g. Weekly groceries for 4 people, budget ₹2,500, healthy and low-sugar."></textarea>
+      <div class="chips">
+        <div class="chip" data-chip="₹2,500 budget">₹2,500 budget</div>
+        <div class="chip" data-chip="Family of 4">Family of 4</div>
+        <div class="chip" data-chip="Healthy">Healthy</div>
+        <div class="chip" data-chip="Low sugar">Low sugar</div>
+      </div>
+      <button class="btn-primary" id="search-btn" onclick="startSearch()">Find my best match</button>
+      <div class="explainers">
+        <div class="explainer"><div class="icon">🔍</div><h4>Search</h4><p>Discover options from connected sources</p></div>
+        <div class="explainer"><div class="icon">⚖️</div><h4>Decide</h4><p>Match options to personal requirements</p></div>
+        <div class="explainer"><div class="icon">🎯</div><h4>Detect</h4><p>Find uncertain relationships that could change the decision</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Processing -->
+  <div id="processing">
+    <div class="spinner"></div>
+    <p style="color:var(--muted);margin-bottom:16px;">EUZME working…</p>
+    <div class="steps-log" id="steps-log"></div>
+  </div>
+
+  <!-- SCREEN 2: Results -->
+  <div id="screen-result">
+    <button class="back-btn" onclick="goBack()">← New search</button>
+
+    <!-- Best Basket header -->
+    <div class="result-header">
+      <div class="match-score">
+        <div class="score-badge" id="match-score-badge">100%</div>
+        <div>
+          <h2>Your Best Basket</h2>
+          <div class="total" id="basket-total">₹2,816</div>
+        </div>
+      </div>
+      <div class="checks" id="checks-list"></div>
+      <div class="saving-badge" id="saving-badge">Estimated saving: ₹316 vs alternatives</div>
+    </div>
+
+    <!-- Basket groups -->
+    <div class="section-card">
+      <h3>🛒 Selected Basket</h3>
+      <div id="basket-groups"></div>
+    </div>
+
+    <!-- Candidate ranking -->
+    <div class="section-card">
+      <h3>📊 Candidate Comparison</h3>
+      <table class="rank-table">
+        <thead><tr><th>Rank</th><th>Candidate</th><th>Before</th><th>After</th><th>Score</th></tr></thead>
+        <tbody id="rank-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Decision-critical mismatch -->
+    <div class="mismatch-alert" id="mismatch-section" style="display:none;">
+      <h4>⚠️ Decision-critical mismatch found &amp; resolved</h4>
+      <p id="mismatch-desc"></p>
+      <button class="btn-outline" onclick="openStepsModal()">See how EUZME solved it</button>
+      <button class="btn-outline" onclick="openGraphModal()">View Decision Graph</button>
+    </div>
+
+    <!-- Approval -->
+    <div class="approval-section">
+      <h3 style="margin-bottom:12px;">✅ Approve &amp; Complete</h3>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:14px;">Nothing is purchased until you approve. <button class="btn-outline" onclick="openWhyModal()" style="padding:4px 10px;font-size:.8rem;">Why this basket?</button></p>
+      <button class="btn-approve" id="approve-btn" onclick="approveCart()">Add all to cart</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: How EUZME solved it -->
+<div class="modal-overlay" id="steps-modal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('steps-modal')">✕</button>
+    <h3>How EUZME solved the mismatch</h3>
+    <div id="steps-content"></div>
+  </div>
+</div>
+
+<!-- Modal: Decision Graph -->
+<div class="modal-overlay" id="graph-modal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('graph-modal')">✕</button>
+    <h3>Decision Graph</h3>
+    <div id="graph-content"></div>
+  </div>
+</div>
+
+<!-- Modal: Why this basket -->
+<div class="modal-overlay" id="why-modal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('why-modal')">✕</button>
+    <h3>Why this basket?</h3>
+    <div id="why-content"></div>
+  </div>
+</div>
+
+<script>
+let activeChips = [];
+let resultData = null;
+
+// Chip toggle
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    c.classList.toggle('active');
+    const val = c.dataset.chip;
+    if (activeChips.includes(val)) activeChips = activeChips.filter(x => x !== val);
+    else activeChips.push(val);
+  });
+});
+
+const LOG_STEPS = [
+  "Parsing consumer input…",
+  "Structuring personalised requirements…",
+  "Discovering candidate options…",
+  "Building requirement-candidate relationships…",
+  "Identifying uncertain relationships…",
+  "Determining decision impact…",
+  "Calculating resolution utility…",
+  "Selecting resolver: automation…",
+  "Resolving rel-A-low-sugar (sugar 2.1 g/100 g)…",
+  "Obtaining evidence + confidence (94%)…",
+  "Transitioning state: uncertain → verified…",
+  "Updating Decision Graph…",
+  "Propagating dependencies…",
+  "Incrementally recalculating affected subgraph…",
+  "Re-ranking candidates…",
+  "Re-evaluating stop condition… ✓ met",
+  "Preparing final recommendation…",
+];
+
+async function startSearch() {
+  const query = document.getElementById('query-input').value.trim();
+  if (!query && activeChips.length === 0) {
+    document.getElementById('query-input').focus();
+    return;
+  }
+
+  document.getElementById('screen-search').style.display = 'none';
+  document.getElementById('processing').style.display = 'block';
+  document.getElementById('search-btn').disabled = true;
+
+  const log = document.getElementById('steps-log');
+  log.innerHTML = '';
+
+  // Animate log steps
+  for (let i = 0; i < LOG_STEPS.length; i++) {
+    await delay(180);
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.textContent = `[${String(i+1).padStart(2,'0')}] ${LOG_STEPS[i]}`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+    if (i === LOG_STEPS.length - 1) line.classList.add('done');
+  }
+
+  // Call API
+  const res = await fetch('/api/search', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({query, chips: activeChips})
+  });
+  resultData = await res.json();
+
+  await delay(400);
+  document.getElementById('processing').style.display = 'none';
+  renderResults(resultData);
+  document.getElementById('screen-result').style.display = 'block';
+}
+
+function renderResults(d) {
+  // Match score
+  document.getElementById('match-score-badge').textContent = d.match_score + '%';
+  document.getElementById('basket-total').textContent = '₹' + d.total.toLocaleString();
+  document.getElementById('saving-badge').textContent = `Estimated saving: ₹${d.saving} vs alternatives`;
+
+  // Checks
+  const cl = document.getElementById('checks-list');
+  cl.innerHTML = d.checks.map(c => `<div class="check-item">${c}</div>`).join('');
+
+  // Basket groups
+  const bg = document.getElementById('basket-groups');
+  bg.innerHTML = d.basket.map((g,i) => `
+    <div class="basket-group">
+      <div><div class="name">${g.group}</div><div class="items">${g.items} items</div></div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty(${i},-1)">−</button>
+        <span class="qty-val" id="qty-${i}">${g.qty}</span>
+        <button class="qty-btn" onclick="changeQty(${i},+1)">+</button>
+      </div>
+    </div>`).join('');
+
+  // Ranking table
+  const tbody = document.getElementById('rank-tbody');
+  const beforeMap = {};
+  d.before_ranking.forEach((c,i) => beforeMap[c.id] = {rank: i+1, score: c.score});
+  tbody.innerHTML = d.after_ranking.map((c,i) => {
+    const bef = beforeMap[c.id];
+    const rankChange = bef.rank > i+1 ? `<span style="color:var(--green)">↑${bef.rank - (i+1)}</span>` :
+                       bef.rank < i+1 ? `<span style="color:var(--red)">↓${(i+1) - bef.rank}</span>` : '–';
+    return `<tr>
+      <td><span class="rank-badge ${i===0?'top':''}">#${i+1}</span></td>
+      <td>${c.name}</td>
+      <td>${bef.score}% ${rankChange}</td>
+      <td>${c.score}%</td>
+      <td><div class="score-bar-wrap"><div class="score-bar" style="width:${c.score}%"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  // Mismatch section
+  const mismatches = d.resolution_steps.filter(s => s.from_state === 'uncertain');
+  if (mismatches.length > 0) {
+    const m = mismatches[0];
+    document.getElementById('mismatch-section').style.display = 'block';
+    document.getElementById('mismatch-desc').textContent =
+      `One candidate did not initially match the ${m.requirement.replace('_',' ')} preference. ` +
+      `Predicted impact before resolution: HIGH (decision-criticality ${m.criticality}). ` +
+      `Resolved via ${m.resolver} with ${m.confidence}% confidence.`;
+  }
+}
+
+function changeQty(idx, delta) {
+  const el = document.getElementById(`qty-${idx}`);
+  const val = Math.max(0, parseInt(el.textContent) + delta);
+  el.textContent = val;
+  // Update total dynamically
+  const base = resultData.total;
+  const change = delta * 150;
+  const newTotal = base + change;
+  document.getElementById('basket-total').textContent = '₹' + newTotal.toLocaleString();
+}
+
+function openStepsModal() {
+  const steps = resultData.resolution_steps;
+  const workedExample = [
+    {title:"Mismatch detected", desc: `Relationship <code>${steps[0]?.rel_id || 'rel-A-low-sugar'}</code> was flagged as decision-critical.`},
+    {title:"Decision impact checked", desc:`Resolving it could move Candidate ${steps[0]?.candidate} from #1 to a lower rank. Impact: ${steps[0]?.impact}.`},
+    {title:"Criticality determined", desc:`User-declared priority 1.00; system-inferred decision impact ${steps[0]?.impact}; decision-criticality ${steps[0]?.criticality}.`},
+    {title:"Resolution mechanism selected", desc:`Resolver: <b>${steps[0]?.resolver}</b>. Method: ${steps[0]?.method}. Evidence: ${steps[0]?.evidence}. Confidence: ${steps[0]?.confidence}%.`, evidence: steps[0]?.evidence},
+    {title:"Relationship resolved", desc:`${steps[0]?.requirement.replace('_',' ')} relationship changed from <b>uncertain → verified</b> (confidence ${steps[0]?.confidence}%).`},
+    {title:"Affected state recalculated", desc:`Dependency subgraph (budget, family size, healthy, low sugar) recalculated and candidates re-ranked.`},
+  ];
+  document.getElementById('steps-content').innerHTML = workedExample.map((s,i) => `
+    <div class="step-row">
+      <div class="step-num">${i+1}</div>
+      <div class="step-body">
+        <h5>${s.title}</h5>
+        <p>${s.desc}</p>
+        ${s.evidence ? `<span class="evidence-pill">Evidence: ${s.evidence}</span>` : ''}
+      </div>
+    </div>`).join('');
+  document.getElementById('steps-modal').classList.add('open');
+}
+
+function openGraphModal() {
+  const g = resultData.decision_graph;
+  const reqNodes = g.requirements.map(r => `<div class="graph-node">${r.replace('_',' ')}</div>`).join('');
+  const candNodes = g.candidates.map(c => `<div class="graph-node">${c.name}<br><small style="color:var(--muted)">${c.score}%</small></div>`).join('');
+  const relNodes = g.relationships.map(r => `
+    <div class="graph-node ${r.state}">
+      <span style="font-size:.75rem;color:var(--muted)">${r.id}</span><br>
+      <span class="state-tag ${r.state}">${r.state}</span>
+      ${r.confidence ? `<span style="font-size:.72rem;color:var(--muted)"> ${r.confidence}%</span>` : ''}
+      ${r.transition ? `<br><span style="font-size:.7rem;color:var(--yellow)">uncertain → verified</span>` : ''}
+    </div>`).join('');
+
+  document.getElementById('graph-content').innerHTML = `
+    <div class="graph-grid">
+      <div class="graph-col"><h5>Requirements</h5>${reqNodes}</div>
+      <div class="graph-col"><h5>Candidates</h5>${candNodes}</div>
+      <div class="graph-col"><h5>Relationships</h5>${relNodes}</div>
+    </div>`;
+  document.getElementById('graph-modal').classList.add('open');
+}
+
+function openWhyModal() {
+  const winner = resultData.winner;
+  document.getElementById('why-content').innerHTML = `
+    <p style="font-size:.9rem;margin-bottom:12px;">The top recommendation is <b>${winner.name}</b> with a score of <b>${winner.score}%</b> after resolution.</p>
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px;">All decision-critical uncertainties were resolved before this recommendation was made. The technical process stays in the background — evidence is shown only when you choose to inspect it.</p>
+    <ul style="font-size:.85rem;color:var(--muted);padding-left:18px;line-height:1.8;">
+      <li>Budget constraint: verified ✓</li>
+      <li>Family size suitability: verified ✓</li>
+      <li>Healthy products: verified ✓</li>
+      <li>Low-sugar (2.1 g/100 g): verified ✓ — resolved via automation, 94% confidence</li>
+    </ul>`;
+  document.getElementById('why-modal').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function approveCart() {
+  const btn = document.getElementById('approve-btn');
+  btn.textContent = '19 items added to cart ✓';
+  btn.classList.add('done');
+}
+
+function goBack() {
+  document.getElementById('screen-result').style.display = 'none';
+  document.getElementById('screen-search').style.display = 'block';
+  document.getElementById('search-btn').disabled = false;
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
